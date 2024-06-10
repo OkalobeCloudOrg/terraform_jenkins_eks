@@ -1,19 +1,63 @@
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: nginx
-spec:
-  selector:
-    matchLabels:
-      app: nginx
-  replicas: 1
-  template:
-    metadata:
-      labels:
-        app: nginx
-    spec:
-      containers:
-      - name: nginx
-        image: nginx
-        ports:
-        - containerPort: 80
+version: '3.7'
+
+services:
+
+  moodle:
+    image: moodlehq/moodle-php-apache:latest
+    restart: always
+    ports:
+      - 8080:80
+    environment:
+      MOODLE_DBTYPE: mariadb
+      MOODLE_DBHOST: db
+      MOODLE_DBNAME: moodle
+      MOODLE_DBUSER: moodleuser
+      MOODLE_DBPASSWORD_FILE: /run/secrets/db_password
+      MOODLE_DATAROOT: /var/www/moodledata
+    secrets:
+      - db_password
+    volumes:
+      - moodledata:/var/www/moodledata
+      - moodle:/var/www/html
+
+  db:
+    image: mariadb:latest
+    ports:
+      - "3306:3306"
+    environment:
+      MYSQL_DATABASE: moodle
+      MYSQL_USER: moodleuser
+      MYSQL_PASSWORD_FILE: /run/secrets/db_password
+      MYSQL_ROOT_PASSWORD_FILE: /run/secrets/db_root_password
+    secrets:
+      - db_password
+      - db_root_password
+    volumes:
+      - db:/var/lib/mysql
+    networks:
+      - default
+
+  phpmyadmin:
+    image: phpmyadmin/phpmyadmin
+    links:
+      - db:db
+    ports:
+      - 8282:80
+    environment:
+      MYSQL_USER: moodleuser
+      MYSQL_PASSWORD_FILE: /run/secrets/db_password
+      MYSQL_ROOT_PASSWORD_FILE: /run/secrets/db_root_password
+    secrets:
+      - db_password
+      - db_root_password
+
+secrets:
+  db_password:
+    file: db_password.txt
+  db_root_password:
+    file: db_root_password.txt
+
+volumes:
+  moodledata:
+  moodle:
+  db:
